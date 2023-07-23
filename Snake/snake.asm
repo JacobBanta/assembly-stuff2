@@ -8,7 +8,7 @@ section .data
     ; Length of the clear screen sequence
     CLEAR_SCREEN_LENGTH equ $ - CLEAR_SCREEN
 
-    length dq 3
+    len dq 5
     apple dq 11021
     dir dq 3
 
@@ -28,14 +28,11 @@ _start:
     call make_box
     call starting_position    
 
-    mov rdi, 0
-    mov rsi, 26
-    call cursor
+    call main_loop
 
-    ;call main_loop
-
-    call input
-    add rsp, 8
+    ;mov rdi, 0
+    ;mov rsi, 26
+    ;call cursor
 
   exit:
     ; Terminate the program
@@ -54,21 +51,121 @@ main_loop:
     ret
 
 player_move:
-    ;call undraw_right_paddle
-    mov rax, [rsp + 8]
-    cmp rax, 0
-    je zero
-    mov rdx, 2
-    mul rdx		; rax * rdx -> rax
-    sub rax, 3
-    ;add rax, [right]
-    cmp rax, 24
-    je zero
+    call undraw_tail
+    call undraw_head
+    call shift
+    mov rax, [rsp+8]
+    mov [dir], rax
+    cmp rax, 1
+    je up3
     cmp rax, 2
-    je zero
-    ;mov [right], rax
-  zero:
-    ;call draw_right_paddle
+    je down3
+    cmp rax, 3
+    je right3
+    jmp left3
+  up3:
+    dec byte[snake+1]
+    ret
+  down3:
+    inc byte[snake+1]
+    ret
+  right3:
+    inc byte[snake]
+    ret
+  left3:
+    dec byte[snake]
+    ret
+
+shift:
+    mov rax, [len]
+    mov rcx, 3
+    sar rax, cl
+    sal rax, cl
+    add rax, 10
+  loop7:
+    sub rax, 10
+    mov rdx, [snake + rax]
+    add rax, 2
+    mov [snake+rax], rdx
+    cmp rax, 2
+    jne loop7
+    ret
+
+undraw_tail:
+    mov rax, [len]
+    dec rax
+    add rax, rax
+    xor rdi, rdi
+    xor rsi, rsi
+    mov dil, byte[snake + rax]
+    inc rax
+    mov sil, byte[snake + rax]
+    call cursor
+    push " "
+    call print_char
+    add rsp, 8
+    ret
+
+undraw_head:
+    xor rdi, rdi
+    xor rsi, rsi
+    mov dil, [snake]
+    mov sil, [snake+1]
+    call cursor
+    mov rax, [dir]
+    mov rdx, [rsp+16]
+    cmp rax, rdx
+    je same
+    cmp rax, 1
+    je up2
+    cmp rax, 2
+    je down2
+    cmp rax, 3
+    je right2
+    cmp rax, 4
+    je left2
+
+  forward:
+    push "/"
+    call print_char
+    add rsp, 8
+    ret
+  backward:
+    push '\'
+    call print_char
+    add rsp, 8
+    ret
+  up2:
+    cmp rdx, 3
+    je forward
+    jmp backward
+
+  down2:
+    cmp rdx, 3
+    je backward
+    jmp forward
+
+  right2:
+    cmp rdx, 1
+    je forward
+    jmp backward
+
+  left2:
+    cmp rdx, 1
+    je backward
+    jmp forward
+
+  same:
+    cmp rax, 2
+    jg greater
+    push "|"
+    call print_char
+    add rsp, 8
+    ret
+  greater:
+    push "-"
+    call print_char
+    add rsp, 8
     ret
 
 starting_position:
@@ -122,10 +219,10 @@ print_apple:
 clear_screen:
     ; Write the ANSI escape sequence to clear the screen
     call ANSI
-    mov eax, 1			; System call number for writing to stdout
-    mov edi, 1			; File descriptor for stdout
-    mov esi, CLEAR_SCREEN   	; Address of the clear screen sequence
-    mov edx, CLEAR_SCREEN_LENGTH ; Length of the sequence
+    mov rax, 1			; System call number for writing to stdout
+    mov rdi, 1			; File descriptor for stdout
+    mov rsi, CLEAR_SCREEN   	; Address of the clear screen sequence
+    mov rdx, CLEAR_SCREEN_LENGTH ; Length of the sequence
     syscall
 
 ANSI:		; Just prints the escap character to start an ANSI character sequence
@@ -158,19 +255,19 @@ cursor:			; Sets the cursor position using ANSI. The x is in the rdi register an
 
 print_num:			; This function loads individual digits onto the stack in reverse order, the prints them off individually.
 ; NOTE: this could be improved if it printed directly from the stack, but that seems too dangerous for me
-    xor eax, eax
-    xor ebx, ebx
+    xor rax, rax
+    xor rbx, rbx
     xor r9, r9
-    mov eax, [rsp + 8]
-    mov ebx, 10
+    mov rax, [rsp + 8]
+    mov rbx, 10
     loop1:
     inc r9
     xor rdx, rdx                ; rdx register MUST to be cleared befor division
-    div ebx                     ; divides eax(printed number) / ebx(10) with remainder going to dx
-    add edx, 48                 ; converts raw value to ascii digit
+    div rbx                     ; divides eax(printed number) / ebx(10) with remainder going to dx
+    add rdx, 48                 ; converts raw value to ascii digit
     mov [rsp - 8], rdx
     sub rsp, 8
-    cmp eax, 0
+    cmp rax, 0
     jg loop1
     loop2:
     call print_char
@@ -266,23 +363,32 @@ input:
     cmp rax, 0x445B1B
     je left
 
-    mov rax, [dir]
-    mov qword[rsp+8], rax
+  fail:
+    mov rdx, [dir]
+    mov qword[rsp+8], rdx
     ret
 
     up:
+    cmp qword[dir], 2
+    je fail
     mov qword[rsp+8], 1
     ret
 
     down:
+    cmp qword[dir], 1
+    je fail
     mov qword[rsp+8], 2
     ret
 
     right:
+    cmp qword[dir], 4
+    je fail
     mov qword[rsp+8], 3
     ret
 
     left:
+    cmp qword[dir], 3
+    je fail
     mov qword[rsp+8], 4
     ret
 

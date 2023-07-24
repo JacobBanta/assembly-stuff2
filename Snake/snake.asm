@@ -8,8 +8,8 @@ section .data
     ; Length of the clear screen sequence
     CLEAR_SCREEN_LENGTH equ $ - CLEAR_SCREEN
 
-    len dq 3
-    apple dq 11021
+    len dq 8
+    apple dw 3371
     dir dq 3
 
 section .bss

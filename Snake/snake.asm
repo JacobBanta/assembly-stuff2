@@ -8,7 +8,7 @@ section .data
     ; Length of the clear screen sequence
     CLEAR_SCREEN_LENGTH equ $ - CLEAR_SCREEN
 
-    len dq 5
+    len dq 3
     apple dq 11021
     dir dq 3
 
@@ -65,15 +65,23 @@ player_move:
     jmp left3
   up3:
     dec byte[snake+1]
+    call draw_head
+    call check_bounds
     ret
   down3:
     inc byte[snake+1]
+    call draw_head
+    call check_bounds
     ret
   right3:
     inc byte[snake]
+    call draw_head
+    call check_bounds
     ret
   left3:
     dec byte[snake]
+    call draw_head
+    call check_bounds
     ret
 
 shift:
@@ -89,6 +97,61 @@ shift:
     mov [snake+rax], rdx
     cmp rax, 2
     jne loop7
+    ret
+
+check_bounds:
+    xor rdi, rdi
+    xor rsi, rsi
+    mov dil, [snake]
+    mov sil, [snake+1]
+    cmp rdi, 50
+    je exit
+    cmp rdi, 1
+    je exit
+    cmp rsi, 25
+    je exit
+    cmp rsi, 1
+    je exit
+    cmp dil, [apple]
+    jne skip
+    cmp sil, [apple+1]
+    jne skip
+    inc qword[len]
+    call generate_apple
+  skip:
+    ret
+
+generate_apple:
+    lea rdi, apple
+    mov rsi, 2
+    mov rdx, 0
+    mov rax, 318
+    syscall
+    cmp byte[apple], 1
+    jle generate_apple
+    cmp byte[apple], 50
+    jge generate_apple 
+    cmp byte[apple+1], 1
+    jle generate_apple
+    cmp byte[apple+1], 25
+    jge generate_apple
+    xor rsi, rsi
+    xor rdi, rdi 
+    mov dil, [apple]
+    mov sil, [apple+1]
+    call cursor
+    call print_apple
+    ret
+
+draw_head:
+    xor rdi, rdi
+    xor rsi, rsi
+    mov dil, [snake]
+    mov sil, [snake+1]
+    call cursor
+    push '*'
+    call print_char
+    add rsp, 8
     ret
 
 undraw_tail:

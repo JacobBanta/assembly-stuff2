@@ -8,7 +8,7 @@ section .data
     ; Length of the clear screen sequence
     CLEAR_SCREEN_LENGTH equ $ - CLEAR_SCREEN
 
-    len dq 8
+    len dq 3
     apple dw 3371
     dir dq 3
 
@@ -86,6 +86,7 @@ player_move:
 
 shift:
     mov rax, [len]
+    add rax, rax
     mov rcx, 3
     sar rax, cl
     sal rax, cl

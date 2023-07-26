@@ -35,6 +35,9 @@ _start:
     ;call cursor
 
   exit:
+    mov rsi, 26
+    xor rdi, rdi
+    call cursor
     ; Terminate the program
     call Recanonize
     mov eax, 60		; System call number for program exit
@@ -47,6 +50,7 @@ main_loop:
     call flush_inputs
     call player_move
     add rsp, 8
+    call print_score
     jmp main_loop
     ret
 
@@ -118,6 +122,21 @@ check_bounds:
     inc qword[len]
     call generate_apple
   skip:
+    call check_tail
+    ret
+
+check_tail:
+    mov rax, [len]
+    inc rax
+    add rax, rax
+  loop8:
+    sub rax, 2
+    mov di, [snake]
+    mov si, [snake+rax]
+    cmp si, di
+    je exit
+    cmp rax, 2
+    jne loop8
     ret
 
 generate_apple:
@@ -228,6 +247,20 @@ undraw_head:
     push "-"
     call print_char
     add rsp, 8
+    ret
+
+print_score:
+    mov rdi, 51
+    xor rsi, rsi
+    call cursor
+    mov rax, [len] 
+    sub rax, 3
+    push rax
+    call print_num
+    pop rax
+    xor rdi, rdi
+    xor rsi, rsi
+    call cursor
     ret
 
 starting_position:

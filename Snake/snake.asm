@@ -87,9 +87,7 @@ player_move:
 shift:
     mov rax, [len]
     add rax, rax
-    mov rcx, 3
-    sar rax, cl
-    sal rax, cl
+    and al, 248
     add rax, 10
   loop7:
     sub rax, 10

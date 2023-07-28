@@ -1,5 +1,5 @@
 section .data
-    height equ 32
+    height equ 26
     width equ 32
 
     x dq 4
@@ -15,6 +15,12 @@ section .data
 
     ; Length of the clear screen sequence
     CLEAR_SCREEN_LENGTH equ $ - CLEAR_SCREEN
+
+    unknown_text db "unknown address"
+    unknown_len equ $ - unknown_text
+
+section .bss
+    board: resb 240
 
 section .text
     global _start
@@ -46,6 +52,14 @@ _start:
     xor edi, edi	; Exit status code (0)
     syscall
 
+  unknown:
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, unknown_text
+    mov rdx, unknown_len
+    syscall
+    jmp exit
+
 main_loop:
     call delay
     call input
@@ -59,33 +73,90 @@ player_move:
     mov rdi, [x]
     mov rsi, [y]
     call [undraw]
-    inc qword[y]
-    cmp qword[y], 28
-    je exit
-    cmp qword[rsp+8], 4
-    jne skip
-    cmp qword[x], 0
-    je skip
-    dec qword[x]
-  skip:
-    cmp qword[rsp+8], 3
-    jne skip2
-    cmp qword[x], 8
-    je skip2
-    inc qword[x]
-  skip2:
+    call attempt_move
     mov rdi, [x]
     mov rsi, [y]
     call [draw]
     ret
 
+land:
+    mov rdi, [x]
+    mov rsi, [y]
+    call [draw]
+    mov qword[y], 0
+    mov qword[x], 4
+    ret
+
+attempt_move:
+    mov rax, [draw]
+    cmp rax, print_o
+    je am_o
+    jmp unknown
+  am_o:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp qword[rsp+16], 4
+    jne skip_o
+    cmp qword[x], 0
+    je skip_o
+    cmp byte[rdx-1], 0
+    jne skip_o
+    cmp byte[rdx+9], 0
+    jne skip_o
+    dec qword[x]
+  skip_o:
+    cmp qword[rsp+16], 3
+    jne skip_o2
+    cmp qword[x], 8
+    je skip_o2
+    cmp byte[rdx+2], 0
+    jne skip_o2
+    cmp byte[rdx+12], 0
+    jne skip_o2
+    inc qword[x]
+  skip_o2:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp byte[rdx+20], 0
+    jne place
+    cmp byte[rdx+21], 0
+    jne place
+    inc qword[y]
+    cmp qword[y], 22
+    je place
+    ret
+
+place:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    mov rax, [draw]
+    cmp rax, print_o
+    je place_o
+    jmp unknown
+  place_o:
+    mov byte[rdx], 1
+    mov byte[rdx+1], 1
+    mov byte[rdx+10], 1
+    mov byte[rdx+11], 1
+    jmp land
+    
+
 clear_screen:
     ; Write the ANSI escape sequence to clear the screen
     call ANSI
-    mov eax, 1			; System call number for writing to stdout
-    mov edi, 1			; File descriptor for stdout
-    mov esi, CLEAR_SCREEN   	; Address of the clear screen sequence
-    mov edx, CLEAR_SCREEN_LENGTH ; Length of the sequence
+    mov rax, 1			; System call number for writing to stdout
+    mov rdi, 1			; File descriptor for stdout
+    mov rsi, CLEAR_SCREEN   	; Address of the clear screen sequence
+    mov rdx, CLEAR_SCREEN_LENGTH ; Length of the sequence
     syscall
 
 ANSI:		; Just prints the escap character to start an ANSI character sequence

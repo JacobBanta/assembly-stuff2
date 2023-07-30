@@ -79,10 +79,83 @@ player_move:
     call [draw]
     ret
 
+attempt_line_clear:
+    mov rdi, [y]
+    inc rdi
+    mov rax, 10
+    mul rdi
+    mov rdi, rax
+    sub rax, 10
+    xor rdx, rdx
+   loop7:
+    mov dl, [board+rax]
+    inc rax
+    cmp rax, rdi
+    je next
+    cmp dl, 0
+    jne loop7
+    jmp next2
+  next:
+    call unprint_line
+    call unplace_line
+  next2:
+    inc qword[y]
+    mov rdi, [y]
+    inc rdi
+    mov rax, 10
+    mul rdi
+    mov rdi, rax
+    sub rax, 10
+    xor rdx, rdx
+   loop8:
+    mov dl, [board+rax]
+    inc rax
+    cmp rax, rdi
+    je next3
+    cmp dl, 0
+    jne loop8
+    jmp next4
+  next3:
+    call unprint_line
+    call unplace_line
+  next4:
+    ret
+
+unplace_line:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    mov rdx, rax
+    add rdx, 10
+   loop9:
+    mov byte[board+rax], 0
+    inc rax
+    cmp rax, rdx
+    jne loop9
+    ret
+
+unprint_line:
+    mov rax, 10
+    mov rsi, [y]
+    add rsi, 2
+    mov rdi, 2
+    push rax
+    call cursor
+    pop rax
+   unprint_line_loop:
+    dec rax
+    push rax
+    call unprint_piece
+    pop rax
+    cmp rax, 0
+    jne unprint_line_loop
+    ret
+
 land:
     mov rdi, [x]
     mov rsi, [y]
     call [draw]
+    call attempt_line_clear
     mov qword[y], 0
     mov qword[x], 4
     ret
@@ -134,6 +207,8 @@ attempt_move:
 
 place:
     mov rax, [y]
+    cmp rax, 0
+    je exit
     mov rdx, 10
     mul rdx
     add rax, [x]

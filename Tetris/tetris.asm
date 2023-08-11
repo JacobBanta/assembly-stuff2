@@ -20,7 +20,7 @@ section .data
     unknown_len equ $ - unknown_text
 
 section .bss
-    board: resb 240
+    board: resb 250
 
 section .text
     global _start
@@ -34,6 +34,17 @@ _start:
 
     call clear_screen
     call make_box
+
+    mov byte[board+240], 1
+    mov byte[board+241], 1
+    mov byte[board+242], 1
+    mov byte[board+243], 1
+    mov byte[board+244], 1
+    mov byte[board+245], 1
+    mov byte[board+246], 1
+    mov byte[board+247], 1
+    mov byte[board+248], 1
+    mov byte[board+249], 1
 
     lea rax, [print_o]
     lea rdx, [unprint_o]
@@ -85,11 +96,11 @@ attempt_line_clear:
     mov rax, 10
     mul rdi
     mov rdi, rax
-    sub rax, 10
+    sub rax, 11
     xor rdx, rdx
    loop7:
-    mov dl, [board+rax]
     inc rax
+    mov dl, [board+rax]
     cmp rax, rdi
     je next
     cmp dl, 0
@@ -98,27 +109,104 @@ attempt_line_clear:
   next:
     call unprint_line
     call unplace_line
+    call drop_lines
+    call redraw_lines
   next2:
     inc qword[y]
-    mov rdi, [y]
-    inc rdi
-    mov rax, 10
-    mul rdi
-    mov rdi, rax
-    sub rax, 10
-    xor rdx, rdx
-   loop8:
-    mov dl, [board+rax]
-    inc rax
-    cmp rax, rdi
-    je next3
-    cmp dl, 0
-    jne loop8
-    jmp next4
-  next3:
+    cmp qword[y], 24
+    jne attempt_line_clear
+    ret
+
+redraw_lines:
+    push qword[y]
+   loop11:
     call unprint_line
-    call unplace_line
-  next4:
+    call print_line
+    dec qword[y]
+    cmp qword[y], 0
+    jne loop11
+    pop qword[y]
+    ret
+    
+print_line:
+    mov rax, 0
+    mov rsi, [y]
+    add rsi, 2
+    mov rdi, 2
+    push rax
+    call cursor
+    pop rax
+   print_line_loop:
+    push rax
+    call print_piece_color
+    pop rax
+    inc rax
+    cmp rax, 10
+    jne print_line_loop
+    ret
+
+print_piece_color:
+    mov rdi, rax
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, rdi
+    mov al, [board+rax]
+    cmp al, 0
+    je blank
+    cmp al, 1
+    je o
+    cmp al, 2
+    je i
+    push rax
+    call print_num
+    jmp unknown
+  blank:
+    call unprint_piece
+    ret
+  o:
+    push 103
+    call color
+    call print_piece
+    push 0
+    call color
+    ret
+  i:
+    push 106
+    call color
+    call print_piece
+    push 0
+    call color
+    ret
+
+drop_lines:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+   loop10:
+    mov dl, [board-10+rax]
+    mov [board+rax], dl
+    mov dl, [board-9+rax]
+    mov [board+rax+1], dl
+    mov dl, [board-8+rax]
+    mov [board+rax+2], dl
+    mov dl, [board-7+rax]
+    mov [board+rax+3], dl
+    mov dl, [board-6+rax]
+    mov [board+rax+4], dl
+    mov dl, [board-5+rax]
+    mov [board+rax+5], dl
+    mov dl, [board-4+rax]
+    mov [board+rax+6], dl
+    mov dl, [board-3+rax]
+    mov [board+rax+7], dl
+    mov dl, [board-2+rax]
+    mov [board+rax+8], dl
+    mov dl, [board-1+rax]
+    mov [board+rax+9], dl
+    sub rax, 10
+    cmp rax, 0
+    jne loop10
     ret
 
 unplace_line:
@@ -164,6 +252,8 @@ attempt_move:
     mov rax, [draw]
     cmp rax, print_o
     je am_o
+    cmp rax, print_i_1
+    je am_i_1
     jmp unknown
   am_o:
     mov rax, [y]
@@ -201,6 +291,49 @@ attempt_move:
     cmp byte[rdx+21], 0
     jne place
     inc qword[y]
+    ret
+  am_i_1:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp qword[rsp+16], 4
+    jne skip_i_1
+    cmp qword[x], 0
+    je skip_i_1
+    cmp byte[rdx-1], 0
+    jne skip_i_1
+    cmp byte[rdx+9], 0
+    jne skip_i_1
+    cmp byte[rdx+19], 0
+    jne skip_i_1
+    cmp byte[rdx+29], 0
+    jne skip_i_1
+    dec qword[x]
+  skip_i_1:
+    cmp qword[rsp+16], 3
+    jne skip_i_12
+    cmp qword[x], 9
+    je skip_i_12
+    cmp byte[rdx+1], 0
+    jne skip_i_12
+    cmp byte[rdx+11], 0
+    jne skip_i_12
+    cmp byte[rdx+21], 0
+    jne skip_i_12
+    cmp byte[rdx+31], 0
+    jne skip_i_12
+    inc qword[x]
+  skip_i_12:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp byte[rdx+40], 0
+    jne place
+    inc qword[y]
     cmp qword[y], 22
     je place
     ret
@@ -216,6 +349,8 @@ place:
     mov rax, [draw]
     cmp rax, print_o
     je place_o
+    cmp rax, print_i_1
+    je place_i_1
     jmp unknown
   place_o:
     mov byte[rdx], 1
@@ -223,7 +358,12 @@ place:
     mov byte[rdx+10], 1
     mov byte[rdx+11], 1
     jmp land
-    
+  place_i_1:
+    mov byte[rdx], 2
+    mov byte[rdx+10], 2
+    mov byte[rdx+20], 2
+    mov byte[rdx+30], 2
+    jmp land
 
 clear_screen:
     ; Write the ANSI escape sequence to clear the screen

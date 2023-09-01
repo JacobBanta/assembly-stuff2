@@ -153,6 +153,22 @@ generate_apple:
     jle generate_apple
     cmp byte[apple+1], 25
     jge generate_apple
+    mov rax, len
+    inc rax
+    add rax, rax
+  tail_loop:
+    cmp rax, 0
+    jne tail_loop_end
+    sub rax,2
+    lea rdx, [snake+rax]
+    mov sil, [apple]
+    mov dil, [apple+1]
+    cmp sil, [rdx]
+    jne tail_loop
+    cmp dil, [rdx+1]
+    jne tail_loop
+    jmp generate_apple
+  tail_loop_end:
     xor rsi, rsi
     xor rdi, rdi 
     mov dil, [apple]

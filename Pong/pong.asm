@@ -168,21 +168,24 @@ ball_logic:
     ret
 
 player_move:
-    call undraw_right_paddle
     mov rax, [rsp + 8]
     cmp rax, 0
     je zero
+    push rax 
+    call undraw_right_paddle
+    pop rax
     mov rdx, 2
     mul rdx		; rax * rdx -> rax
     sub rax, 3
     add rax, [right]
     cmp rax, 24
-    je zero
+    je redraw
     cmp rax, 2
-    je zero
+    je redraw
     mov [right], rax
-  zero:
+  redraw:
     call draw_right_paddle
+  zero:
     ret
 
 bot_move:

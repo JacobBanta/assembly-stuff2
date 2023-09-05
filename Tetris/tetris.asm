@@ -46,8 +46,8 @@ _start:
     mov byte[board+248], 1
     mov byte[board+249], 1
 
-    lea rax, [print_o]
-    lea rdx, [unprint_o]
+    lea rax, [print_s_1]
+    lea rdx, [unprint_s_1]
     mov [draw], rax
     mov [undraw], rdx
 
@@ -145,7 +145,7 @@ print_line:
     jne print_line_loop
     ret
 
-print_piece_color:
+print_piece_color: ; --
     mov rdi, rax
     mov rax, [y]
     mov rdx, 10
@@ -158,6 +158,8 @@ print_piece_color:
     je o
     cmp al, 2
     je i
+    cmp al, 3
+    je s
     push rax
     call print_num
     jmp unknown
@@ -173,6 +175,13 @@ print_piece_color:
     ret
   i:
     push 106
+    call color
+    call print_piece
+    push 0
+    call color
+    ret
+  s:
+    push 102
     call color
     call print_piece
     push 0
@@ -239,21 +248,18 @@ unprint_line:
     jne unprint_line_loop
     ret
 
-land:
-    mov rdi, [x]
-    mov rsi, [y]
-    call [draw]
-    call attempt_line_clear
-    mov qword[y], 0
-    mov qword[x], 4
-    ret
-
 attempt_move:
     mov rax, [draw]
-    cmp rax, print_o
+    cmp rax, print_o ; --
     je am_o
     cmp rax, print_i_1
     je am_i_1
+    cmp rax, print_i_2
+    je am_i_2
+    cmp rax, print_s_1
+    je am_s_1
+    cmp rax, print_s_2
+    je am_s_2
     jmp unknown
   am_o:
     mov rax, [y]
@@ -292,6 +298,7 @@ attempt_move:
     jne place
     inc qword[y]
     ret
+
   am_i_1:
     mov rax, [y]
     mov rdx, 10
@@ -334,12 +341,132 @@ attempt_move:
     cmp byte[rdx+40], 0
     jne place
     inc qword[y]
-    cmp qword[y], 22
-    je place
     ret
 
-place:
+  am_i_2:
     mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp qword[rsp+16], 4
+    jne skip_i_2
+    cmp qword[x], 0
+    je skip_i_2
+    cmp byte[rdx-1], 0
+    jne skip_i_2
+    dec qword[x]
+  skip_i_2:
+    cmp qword[rsp+16], 3
+    jne skip_i_22
+    cmp qword[x], 6
+    je skip_i_22
+    cmp byte[rdx+4], 0
+    jne skip_i_22
+    inc qword[x]
+  skip_i_22:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp byte[rdx+10], 0
+    jne place
+    cmp byte[rdx+11], 0
+    jne place
+    cmp byte[rdx+12], 0
+    jne place
+    cmp byte[rdx+13], 0
+    jne place
+    inc qword[y]
+    ret
+
+  am_s_1:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp qword[rsp+16], 4
+    jne skip_s_1
+    cmp qword[x], 0
+    je skip_s_1
+    cmp byte[rdx], 0
+    jne skip_s_1
+    cmp byte[rdx+9], 0
+    jne skip_s_1
+    dec qword[x]
+  skip_s_1:
+    cmp qword[rsp+16], 3
+    jne skip_s_12
+    cmp qword[x], 7
+    je skip_s_12
+    cmp byte[rdx+3], 0
+    jne skip_s_12
+    cmp byte[rdx+12], 0
+    jne skip_s_12
+    inc qword[x]
+  skip_s_12:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp byte[rdx+20], 0
+    jne place
+    cmp byte[rdx+21], 0
+    jne place
+    cmp byte[rdx+12], 0
+    jne place
+    inc qword[y]
+    ret
+
+  am_s_2:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp qword[rsp+16], 4
+    jne skip_s_2
+    cmp qword[x], 0
+    je skip_s_2
+    cmp byte[rdx-1], 0
+    jne skip_s_2
+    cmp byte[rdx+9], 0
+    jne skip_s_2
+    cmp byte[rdx+20], 0
+    jne skip_s_2
+    dec qword[x]
+  skip_s_2:
+    cmp qword[rsp+16], 3
+    jne skip_s_22
+    cmp qword[x], 8
+    je skip_s_22
+    cmp byte[rdx+1], 0
+    jne skip_s_22
+    cmp byte[rdx+12], 0
+    jne skip_s_22
+    cmp byte[rdx+22], 0
+    jne skip_s_22
+    inc qword[x]
+  skip_s_22:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp byte[rdx+20], 0
+    jne place
+    cmp byte[rdx+31], 0
+    jne place
+    inc qword[y]
+    ret
+
+
+
+place:
+    mov rax, [y]; --
     cmp rax, 0
     je exit
     mov rdx, 10
@@ -351,6 +478,12 @@ place:
     je place_o
     cmp rax, print_i_1
     je place_i_1
+    cmp rax, print_i_2
+    je place_i_2
+    cmp rax, print_s_1
+    je place_s_1
+    cmp rax, print_s_2
+    je place_s_2
     jmp unknown
   place_o:
     mov byte[rdx], 1
@@ -364,6 +497,34 @@ place:
     mov byte[rdx+20], 2
     mov byte[rdx+30], 2
     jmp land
+  place_i_2:
+    mov byte[rdx], 2
+    mov byte[rdx+1], 2
+    mov byte[rdx+2], 2
+    mov byte[rdx+3], 2
+    jmp land
+  place_s_1:
+    mov byte[rdx+1], 3
+    mov byte[rdx+2], 3
+    mov byte[rdx+10], 3
+    mov byte[rdx+11], 3
+    jmp land
+  place_s_2:
+    mov byte[rdx], 3
+    mov byte[rdx+10], 3
+    mov byte[rdx+11], 3
+    mov byte[rdx+21], 3
+    jmp land
+
+land:
+    mov rdi, [x]
+    mov rsi, [y]
+    call [draw]
+    call attempt_line_clear
+    ;call redraw_lines
+    mov qword[y], 0
+    mov qword[x], 4
+    ret
 
 clear_screen:
     ; Write the ANSI escape sequence to clear the screen

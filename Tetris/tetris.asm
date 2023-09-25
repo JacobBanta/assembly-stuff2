@@ -5,6 +5,8 @@ section .data
     x dq 4
     y dq 0
 
+    piece_history db 0
+
     draw dq 0
     undraw dq 0
 
@@ -35,19 +37,14 @@ _start:
     call clear_screen
     call make_box
 
-    mov byte[board+240], 1
-    mov byte[board+241], 1
-    mov byte[board+242], 1
-    mov byte[board+243], 1
-    mov byte[board+244], 1
-    mov byte[board+245], 1
-    mov byte[board+246], 1
-    mov byte[board+247], 1
-    mov byte[board+248], 1
-    mov byte[board+249], 1
+    %assign counter 0
+    %rep 10
+    mov byte[board+240+counter], 1
+    %assign counter counter + 1
+    %endrep
 
-    lea rax, [print_s_1]
-    lea rdx, [unprint_s_1]
+    lea rax, [print_j_1]
+    lea rdx, [unprint_j_1]
     mov [draw], rax
     mov [undraw], rdx
 
@@ -84,11 +81,148 @@ player_move:
     mov rdi, [x]
     mov rsi, [y]
     call [undraw]
+    cmp qword[rsp+8], 1
+    jne skip1
+    call rotate
+  skip1:
     call attempt_move
     mov rdi, [x]
     mov rsi, [y]
     call [draw]
     ret
+
+return:
+    ret
+
+switch_piece:
+    cmp byte[piece_history], 127
+    jne skip
+    mov byte[piece_history], 0
+  skip:
+    mov rax, 318
+    mov rsi, 1
+    mov rdx, 0
+    push 0
+    mov rdi, rsp
+    syscall
+    pop rax
+    xor rdx, rdx
+    mov rdi, 7
+    div rdi
+    mov rcx, rdx
+    mov al, [piece_history]
+    shr al, cl
+    and rax, 1
+    cmp rax, 1
+    je switch_piece
+    mov rdx, 1
+    shl rdx, cl
+    mov al, [piece_history]
+    or al, dl
+    mov [piece_history], al
+    mov rax, rcx
+    call set_piece
+    ret
+
+%macro set 1
+    lea rax, [print_%1_1]
+    lea rdx, [unprint_%{1}_1]
+    mov [draw], rax
+    mov [undraw], rdx
+    ret
+%endmacro
+set_piece:
+    cmp rax, 1
+    je set_o
+    cmp rax, 2
+    je set_i
+    cmp rax, 3
+    je set_s
+    cmp rax, 4
+    je set_z
+    cmp rax, 5
+    je set_j
+    cmp rax, 6
+    je set_l
+    cmp rax, 7
+    je set_t
+    ;jmp unknown
+    ret
+
+  set_o:
+    set o
+  set_i:
+    set i
+  set_s:
+    set s
+  set_z:
+    set z
+  set_j:
+    set j
+  set_l:
+    set l
+  set_t:
+    set t
+
+%macro rotat_helper 2
+    cmp rax, print_%1_%2
+    je rot_%1_%2
+%endmacro
+
+%macro rotat 2
+    %assign w 1
+  %rep %2
+    rotat_helper %1, w
+    %assign w w+1
+  %endrep
+%endmacro
+
+%macro rot_helper 3
+    rot_%{1}_%{2}:
+    lea rax, [print_%1_%{3}]
+    lea rdx, [unprint_%{1}_%{3}]
+    mov [draw], rax
+    mov [undraw], rdx
+    ret
+%endmacro
+
+%macro rot 2
+    %assign w 1
+  %rep %2
+    %if w==%2
+      rot_helper %1, w, 1
+    %else
+      %assign e w+1
+      rot_helper %1, w, e
+    %endif
+    %assign w w+1
+  %endrep
+%endmacro
+
+rotate:
+    mov rax, [draw]
+    cmp rax, print_o
+    je return
+    rotat i, 2
+    rotat s, 2
+    rotat z, 2
+    rotat j, 4
+    rotat l, 4
+    rotat t, 4
+    ;push rax
+    ;call print_num
+    ;pop rax
+    ;jmp unknown
+    ret
+
+    rot i, 2
+    rot s, 2
+    rot z, 2
+    rot j, 4
+    rot l, 4
+    rot t, 4
+
+
 
 attempt_line_clear:
     mov rdi, [y]
@@ -145,7 +279,7 @@ print_line:
     jne print_line_loop
     ret
 
-print_piece_color: ; --
+print_piece_color:
     mov rdi, rax
     mov rax, [y]
     mov rdx, 10
@@ -160,59 +294,60 @@ print_piece_color: ; --
     je i
     cmp al, 3
     je s
+    cmp al, 4
+    je z
+    cmp al, 5
+    je j
+    cmp al, 6
+    je l
+    cmp al, 7
+    je t
     push rax
     call print_num
-    jmp unknown
+    ;jmp unknown
+    ret
   blank:
     call unprint_piece
     ret
+%macro print_piece_c 1
+    push %1
+    call color
+    call print_piece
+    push 0
+    call color
+    ret
+%endmacro
   o:
-    push 103
-    call color
-    call print_piece
-    push 0
-    call color
-    ret
+    print_piece_c 103
   i:
-    push 106
-    call color
-    call print_piece
-    push 0
-    call color
-    ret
+    print_piece_c 106
   s:
-    push 102
-    call color
+    print_piece_c 102
+  z:
+    print_piece_c 101
+  j:
+    print_piece_c 104
+  l:
+    push 208
+    call background_256
     call print_piece
     push 0
     call color
     ret
+  t:
+    print_piece_c 105
 
 drop_lines:
     mov rax, [y]
     mov rdx, 10
     mul rdx
    loop10:
-    mov dl, [board-10+rax]
-    mov [board+rax], dl
-    mov dl, [board-9+rax]
-    mov [board+rax+1], dl
-    mov dl, [board-8+rax]
-    mov [board+rax+2], dl
-    mov dl, [board-7+rax]
-    mov [board+rax+3], dl
-    mov dl, [board-6+rax]
-    mov [board+rax+4], dl
-    mov dl, [board-5+rax]
-    mov [board+rax+5], dl
-    mov dl, [board-4+rax]
-    mov [board+rax+6], dl
-    mov dl, [board-3+rax]
-    mov [board+rax+7], dl
-    mov dl, [board-2+rax]
-    mov [board+rax+8], dl
-    mov dl, [board-1+rax]
-    mov [board+rax+9], dl
+    %assign counter 0
+    %rep 10
+    mov dl, [board-10+rax+counter]
+    mov [board+rax+counter], dl
+    %assign counter counter + 1
+    %endrep
     sub rax, 10
     cmp rax, 0
     jne loop10
@@ -248,9 +383,61 @@ unprint_line:
     jne unprint_line_loop
     ret
 
+
+%macro am 5
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp qword[rsp+16], 4
+    jne %%skip_1
+    cmp qword[x], 0
+    jle %%skip_1
+    cmp byte[rdx+%1-1], 0
+    jne %%skip_1
+    cmp byte[rdx+%2-1], 0
+    jne %%skip_1
+    cmp byte[rdx+%3-1], 0
+    jne %%skip_1
+    cmp byte[rdx+%4-1], 0
+    jne %%skip_1
+    dec qword[x]
+  %%skip_1:
+    cmp qword[rsp+16], 3
+    jne %%skip_2
+    cmp qword[x], %5
+    jge %%skip_2
+    cmp byte[rdx+%1+1], 0
+    jne %%skip_2
+    cmp byte[rdx+%2+1], 0
+    jne %%skip_2
+    cmp byte[rdx+%3+1], 0
+    jne %%skip_2
+    cmp byte[rdx+%4+1], 0
+    jne %%skip_2
+    inc qword[x]
+  %%skip_2:
+    mov rax, [y]
+    mov rdx, 10
+    mul rdx
+    add rax, [x]
+    lea rdx, [board+rax]
+    cmp byte[rdx+%1+10], 0
+    jne place
+    cmp byte[rdx+%2+10], 0
+    jne place
+    cmp byte[rdx+%3+10], 0
+    jne place
+    cmp byte[rdx+%4+10], 0
+    jne place
+    inc qword[y]
+    ret
+%endmacro
+
 attempt_move:
     mov rax, [draw]
-    cmp rax, print_o ; --
+    cmp rax, print_o
     je am_o
     cmp rax, print_i_1
     je am_i_1
@@ -260,213 +447,89 @@ attempt_move:
     je am_s_1
     cmp rax, print_s_2
     je am_s_2
+    cmp rax, print_z_1
+    je am_z_1
+    cmp rax, print_z_2
+    je am_z_2
+    cmp rax, print_j_1
+    je am_j_1
+    cmp rax, print_j_2
+    je am_j_2
+    cmp rax, print_j_3
+    je am_j_3
+    cmp rax, print_j_4
+    je am_j_4
+    cmp rax, print_l_1
+    je am_l_1
+    cmp rax, print_l_2
+    je am_l_2
+    cmp rax, print_l_3
+    je am_l_3
+    cmp rax, print_l_4
+    je am_l_4
+    cmp rax, print_t_1
+    je am_t_1
+    cmp rax, print_t_2
+    je am_t_2
+    cmp rax, print_t_3
+    je am_t_3
+    cmp rax, print_t_4
+    je am_t_4
+    push rax
+    call print_num
+    pop rax
     jmp unknown
+
+    ret
   am_o:
-    mov rax, [y]
-    mov rdx, 10
-    mul rdx
-    add rax, [x]
-    lea rdx, [board+rax]
-    cmp qword[rsp+16], 4
-    jne skip_o
-    cmp qword[x], 0
-    je skip_o
-    cmp byte[rdx-1], 0
-    jne skip_o
-    cmp byte[rdx+9], 0
-    jne skip_o
-    dec qword[x]
-  skip_o:
-    cmp qword[rsp+16], 3
-    jne skip_o2
-    cmp qword[x], 8
-    je skip_o2
-    cmp byte[rdx+2], 0
-    jne skip_o2
-    cmp byte[rdx+12], 0
-    jne skip_o2
-    inc qword[x]
-  skip_o2:
-    mov rax, [y]
-    mov rdx, 10
-    mul rdx
-    add rax, [x]
-    lea rdx, [board+rax]
-    cmp byte[rdx+20], 0
-    jne place
-    cmp byte[rdx+21], 0
-    jne place
-    inc qword[y]
-    ret
-
+    am 0, 1, 10, 11, 8
   am_i_1:
-    mov rax, [y]
-    mov rdx, 10
-    mul rdx
-    add rax, [x]
-    lea rdx, [board+rax]
-    cmp qword[rsp+16], 4
-    jne skip_i_1
-    cmp qword[x], 0
-    je skip_i_1
-    cmp byte[rdx-1], 0
-    jne skip_i_1
-    cmp byte[rdx+9], 0
-    jne skip_i_1
-    cmp byte[rdx+19], 0
-    jne skip_i_1
-    cmp byte[rdx+29], 0
-    jne skip_i_1
-    dec qword[x]
-  skip_i_1:
-    cmp qword[rsp+16], 3
-    jne skip_i_12
-    cmp qword[x], 9
-    je skip_i_12
-    cmp byte[rdx+1], 0
-    jne skip_i_12
-    cmp byte[rdx+11], 0
-    jne skip_i_12
-    cmp byte[rdx+21], 0
-    jne skip_i_12
-    cmp byte[rdx+31], 0
-    jne skip_i_12
-    inc qword[x]
-  skip_i_12:
-    mov rax, [y]
-    mov rdx, 10
-    mul rdx
-    add rax, [x]
-    lea rdx, [board+rax]
-    cmp byte[rdx+40], 0
-    jne place
-    inc qword[y]
-    ret
-
+    am 0, 10, 20, 30, 9
   am_i_2:
-    mov rax, [y]
-    mov rdx, 10
-    mul rdx
-    add rax, [x]
-    lea rdx, [board+rax]
-    cmp qword[rsp+16], 4
-    jne skip_i_2
-    cmp qword[x], 0
-    je skip_i_2
-    cmp byte[rdx-1], 0
-    jne skip_i_2
-    dec qword[x]
-  skip_i_2:
-    cmp qword[rsp+16], 3
-    jne skip_i_22
-    cmp qword[x], 6
-    je skip_i_22
-    cmp byte[rdx+4], 0
-    jne skip_i_22
-    inc qword[x]
-  skip_i_22:
-    mov rax, [y]
-    mov rdx, 10
-    mul rdx
-    add rax, [x]
-    lea rdx, [board+rax]
-    cmp byte[rdx+10], 0
-    jne place
-    cmp byte[rdx+11], 0
-    jne place
-    cmp byte[rdx+12], 0
-    jne place
-    cmp byte[rdx+13], 0
-    jne place
-    inc qword[y]
-    ret
-
+    am 0, 1, 2, 3, 6
   am_s_1:
-    mov rax, [y]
-    mov rdx, 10
-    mul rdx
-    add rax, [x]
-    lea rdx, [board+rax]
-    cmp qword[rsp+16], 4
-    jne skip_s_1
-    cmp qword[x], 0
-    je skip_s_1
-    cmp byte[rdx], 0
-    jne skip_s_1
-    cmp byte[rdx+9], 0
-    jne skip_s_1
-    dec qword[x]
-  skip_s_1:
-    cmp qword[rsp+16], 3
-    jne skip_s_12
-    cmp qword[x], 7
-    je skip_s_12
-    cmp byte[rdx+3], 0
-    jne skip_s_12
-    cmp byte[rdx+12], 0
-    jne skip_s_12
-    inc qword[x]
-  skip_s_12:
-    mov rax, [y]
-    mov rdx, 10
-    mul rdx
-    add rax, [x]
-    lea rdx, [board+rax]
-    cmp byte[rdx+20], 0
-    jne place
-    cmp byte[rdx+21], 0
-    jne place
-    cmp byte[rdx+12], 0
-    jne place
-    inc qword[y]
-    ret
-
+    am 1, 2, 10, 11, 7
   am_s_2:
-    mov rax, [y]
-    mov rdx, 10
-    mul rdx
-    add rax, [x]
-    lea rdx, [board+rax]
-    cmp qword[rsp+16], 4
-    jne skip_s_2
-    cmp qword[x], 0
-    je skip_s_2
-    cmp byte[rdx-1], 0
-    jne skip_s_2
-    cmp byte[rdx+9], 0
-    jne skip_s_2
-    cmp byte[rdx+20], 0
-    jne skip_s_2
-    dec qword[x]
-  skip_s_2:
-    cmp qword[rsp+16], 3
-    jne skip_s_22
-    cmp qword[x], 8
-    je skip_s_22
-    cmp byte[rdx+1], 0
-    jne skip_s_22
-    cmp byte[rdx+12], 0
-    jne skip_s_22
-    cmp byte[rdx+22], 0
-    jne skip_s_22
-    inc qword[x]
-  skip_s_22:
-    mov rax, [y]
-    mov rdx, 10
-    mul rdx
-    add rax, [x]
-    lea rdx, [board+rax]
-    cmp byte[rdx+20], 0
-    jne place
-    cmp byte[rdx+31], 0
-    jne place
-    inc qword[y]
-    ret
+    am 0, 10, 11, 21, 8
+  am_z_1:
+    am 1, 0, 11, 12, 7
+  am_z_2:
+    am 1, 10, 11, 20, 8
+  am_j_1:
+    am 1, 11, 20, 21, 8
+  am_j_2:
+    am 0, 1, 2, 12, 7
+  am_j_3:
+    am 0, 1, 10, 20, 8
+  am_j_4:
+    am 0, 10, 11, 12, 7
+  am_l_1:
+    am 0, 10, 20, 21, 8
+  am_l_2:
+    am 2, 10, 11, 12, 7
+  am_l_3:
+    am 0, 1, 11, 21, 8
+  am_l_4:
+    am 0, 1, 2, 10, 7
+  am_t_1:
+    am 0, 1, 2, 11, 7
+  am_t_2:
+    am 0, 10, 11, 20, 8
+  am_t_3:
+    am 1, 10, 11, 12, 7
+  am_t_4:
+    am 1, 10, 11, 21, 8
 
-
+%macro place_macro 5
+    mov byte[rdx+%1], %5
+    mov byte[rdx+%2], %5
+    mov byte[rdx+%3], %5
+    mov byte[rdx+%4], %5
+    jmp land
+%endmacro
 
 place:
-    mov rax, [y]; --
+    mov rax, [y]
     cmp rax, 0
     je exit
     mov rdx, 10
@@ -484,37 +547,80 @@ place:
     je place_s_1
     cmp rax, print_s_2
     je place_s_2
+    cmp rax, print_z_1
+    je place_z_1
+    cmp rax, print_z_2
+    je place_z_2
+    cmp rax, print_j_1
+    je place_j_1
+    cmp rax, print_j_2
+    je place_j_2
+    cmp rax, print_j_3
+    je place_j_3
+    cmp rax, print_j_4
+    je place_j_4
+    cmp rax, print_l_1
+    je place_l_1
+    cmp rax, print_l_2
+    je place_l_2
+    cmp rax, print_l_3
+    je place_l_3
+    cmp rax, print_l_4
+    je place_l_4
+    cmp rax, print_t_1
+    je place_t_1
+    cmp rax, print_t_2
+    je place_t_2
+    cmp rax, print_t_3
+    je place_t_3
+    cmp rax, print_t_4
+    je place_t_4
     jmp unknown
   place_o:
-    mov byte[rdx], 1
-    mov byte[rdx+1], 1
-    mov byte[rdx+10], 1
-    mov byte[rdx+11], 1
-    jmp land
+    %assign c 1
+    place_macro 0, 1, 10, 11, c
   place_i_1:
-    mov byte[rdx], 2
-    mov byte[rdx+10], 2
-    mov byte[rdx+20], 2
-    mov byte[rdx+30], 2
-    jmp land
+    %assign c c + 1
+    place_macro 0, 10, 20, 30, c
   place_i_2:
-    mov byte[rdx], 2
-    mov byte[rdx+1], 2
-    mov byte[rdx+2], 2
-    mov byte[rdx+3], 2
-    jmp land
+    place_macro 0, 1, 2, 3, c
   place_s_1:
-    mov byte[rdx+1], 3
-    mov byte[rdx+2], 3
-    mov byte[rdx+10], 3
-    mov byte[rdx+11], 3
-    jmp land
+    %assign c c + 1
+    place_macro 1, 2, 10, 11, c
   place_s_2:
-    mov byte[rdx], 3
-    mov byte[rdx+10], 3
-    mov byte[rdx+11], 3
-    mov byte[rdx+21], 3
-    jmp land
+    place_macro 0, 10, 11, 21, c
+  place_z_1:
+    %assign c c + 1
+    place_macro 1, 0, 11, 12, c
+  place_z_2:
+    place_macro 1, 10, 11, 20, c
+  place_j_1:
+    %assign c c + 1
+    place_macro 1, 11, 20, 21, c
+  place_j_2:
+    place_macro 0, 1, 2, 12, c
+  place_j_3:
+    place_macro 0, 1, 10, 20, c
+  place_j_4:
+    place_macro 0, 10, 11, 12, c
+  place_l_1:
+    %assign c c + 1
+    place_macro 0, 10, 20, 21, c
+  place_l_2:
+    place_macro 2, 10, 11, 12, c
+  place_l_3:
+    place_macro 0, 1, 11, 21, c
+  place_l_4:
+    place_macro 0, 1, 2, 10, c
+  place_t_1:
+    %assign c c + 1
+    place_macro 0, 1, 2, 11, c
+  place_t_2:
+    place_macro 0, 10, 11, 20, c
+  place_t_3:
+    place_macro 1, 10, 11, 12, c
+  place_t_4:
+    place_macro 1, 10, 11, 21, c
 
 land:
     mov rdi, [x]
@@ -522,6 +628,7 @@ land:
     call [draw]
     call attempt_line_clear
     ;call redraw_lines
+    call switch_piece
     mov qword[y], 0
     mov qword[x], 4
     ret
@@ -562,6 +669,7 @@ cursor:			; Sets the cursor position using ANSI. The x is in the rdi register an
     add rsp, 8
     ret
 
+print_o_1:
 print_o:
     add rsi, 2
     mov rax, 3
@@ -775,7 +883,7 @@ print_j_1:
     call color
     ret
 
-print_j_2:
+print_j_4:
     add rsi, 2
     mov rax, 3
     mul rdi
@@ -827,7 +935,7 @@ print_j_3:
     call color
     ret
 
-print_j_4:
+print_j_2:
     add rsi, 2
     mov rax, 3
     mul rdi
@@ -880,7 +988,7 @@ print_l_1:
     call color
     ret
 
-print_l_2:
+print_l_4:
     add rsi, 2
     mov rax, 3
     mul rdi
@@ -933,7 +1041,7 @@ print_l_3:
     call color
     ret
 
-print_l_4:
+print_l_2:
     add rsi, 2
     mov rax, 3
     mul rdi
@@ -1064,6 +1172,7 @@ print_t_4:
     call color
     ret
 
+unprint_o_1:
 unprint_o:
     add rsi, 2
     mov rax, 3
@@ -1245,7 +1354,7 @@ unprint_j_1:
     call unprint_piece
     ret
 
-unprint_j_2:
+unprint_j_4:
     add rsi, 2
     mov rax, 3
     mul rdi
@@ -1289,7 +1398,7 @@ unprint_j_3:
     call unprint_piece
     ret
 
-unprint_j_4:
+unprint_j_2:
     add rsi, 2
     mov rax, 3
     mul rdi
@@ -1334,7 +1443,7 @@ unprint_l_1:
     call unprint_piece
     ret
 
-unprint_l_2:
+unprint_l_4:
     add rsi, 2
     mov rax, 3
     mul rdi
@@ -1379,7 +1488,7 @@ unprint_l_3:
     call unprint_piece
     ret
 
-unprint_l_4:
+unprint_l_2:
     add rsi, 2
     mov rax, 3
     mul rdi
@@ -1581,8 +1690,9 @@ print_char:
     ret
 
 make_box:
-    mov rsi, 0
-    mov rdi, 0
+    call ANSI
+    mov rsi, 1
+    mov rdi, 1
     call cursor
     push 47
     call color

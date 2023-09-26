@@ -1,0 +1,42 @@
+%macro str 2+
+    jmp %%over
+    %1: db %2
+    %1len equ $ - %1
+    %%over:
+%endmacro
+%macro print 1
+    mov rax, 1
+    mov rdi, 1
+    mov rdx, %1len
+    mov rsi, %1
+    syscall
+%endmacro
+%macro printstr 1+
+    str %%string, %1
+    print %%string
+%endmacro
+%macro point 1-3 0, 0
+    jmp %%over
+    %1:
+    %1.x: db %2
+    %1.y: db %3
+    %%over:
+%endmacro
+%macro push 2-*
+  %rep  %0
+    push %1
+  %rotate 1
+  %endrep
+%endmacro
+%macro pop 2-*
+  %rep %0
+  %rotate -1
+    pop %1
+  %endrep
+%endmacro
+%macro pusha 0
+    push rax, rbx, rcx, rdx, rsi, rdi, rsp, rbp, r8, r9, r10, r11, r12, r13, r14, r15
+%endmacro
+%macro popa 0
+    pop rax, rbx, rcx, rdx, rsi, rdi, rsp, rbp, r8, r9, r10, r11, r12, r13, r14, r15
+%endmacro

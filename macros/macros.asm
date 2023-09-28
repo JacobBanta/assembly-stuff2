@@ -9,7 +9,8 @@ section .text
 _start:
     printstr 27, "[2J"
     mov rax, 0xc0ffee
-    mov rdx, 0xFFFFFFFFFFFFFFFF
+    xor rdx, rdx
+    add edx, 0x80000000
     call break
   exit:
     ; Terminate the program

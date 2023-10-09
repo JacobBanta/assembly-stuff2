@@ -7,7 +7,7 @@ _start:
     cmp qword[FILE], 0
     jl error
     open FILE2, "file2.txt", O_RDWR | O_CREAT, 384
-    buffer BUFFER, 100
+    buffer BUFFER, 1000
     read FILE, BUFFER
     write FILE2, BUFFER
     close FILE

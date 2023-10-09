@@ -1,0 +1,72 @@
+%macro socket_fd 2
+    section .data
+    %1: dq 0
+    section .text
+    mov qword[%1], %2
+%endmacro
+%macro socket 4
+    mov rax, 41
+    lea rdi, %2
+    mov rsi, %3
+    mov rdx, %4
+    syscall
+    socket_fd %1, rax
+%endmacro
+%macro setsockopt 4-5
+    mov rax, 54
+    mov rdi, [%1]
+    mov rsi, %2
+    mov rdx, %3
+    mov r10, %4
+    %if %0==4
+      mov r8, %4len
+    %else
+      mov r8, %5
+    %endif
+    syscall
+%endmacro
+%macro bind 2-3
+    mov rax, 49
+    mov rdi, [%1]
+    mov rsi, %2
+    %if %0==3
+      mov rdx, %3
+    %else
+      mov rdx, %2len
+    %endif
+    syscall
+%endmacro
+%macro listen 2
+    mov rax, 50
+    mov rdi, [%1]
+    mov rsi, %2
+    syscall
+%endmacro
+%macro accept 2-3
+    mov rax, 43
+    mov rdi, [%1]
+    mov rsi, %2
+    %if %0==2
+      mov rdx, %2len
+    %else
+      mov rdx, %3
+    %endif
+    syscall
+%endmacro
+%macro sendmsg 2-3
+    mov rax, 1
+    mov rdi, [%1]
+    mov rsi, %2
+    %if %0==2
+      mov rdx, %2len
+    %else
+      mov rdx, %3
+    %endif
+    syscall
+%endmacro
+%macro shutdown 2
+    mov rax, 48
+    mov rdi, [%1]
+    mov rsi, %2
+    syscall
+%endmacro

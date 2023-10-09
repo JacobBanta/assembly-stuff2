@@ -46,3 +46,13 @@ section .data
     %1len equ $ - %1
 section .text
 %endmacro
+%macro syscall2 1-7 rdi, rsi, rdx, r10, r8, r9
+  mov rax, %1
+  mov rdi, %2
+  mov rsi, %3
+  mov rdx, %4
+  mov r10, %5
+  mov r8, %6
+  mov r9, %7
+  syscall
+%endmacro
